@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Test MQTT PomoPet</title>
+
+<!-- MQTT.js por WebSocket -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+  body {
+    background: #0d0d12;
+    color: #f0edf8;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+  }
+
+  .card {
+    background: #18181f;
+    border: 1px solid rgba(255,255,255,0.12);
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    min-width: 360px;
+  }
+
+  .pomo {
+    font-size: 54px;
+    margin-bottom: 20px;
+  }
+
+  .estado {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .topic {
+    color: #888;
+    font-size: 14px;
+  }
+
+  .log {
+    margin-top: 20px;
+    color: #c8f060;
+    font-family: monospace;
+  }
+</style>
+</head>
+
+<body>
+  <div class="card">
+    <div class="pomo" id="pomo">(o.o)</div>
+    <div class="estado" id="estado">Esperando cofre...</div>
+    <div class="topic">Tópico: pomopet/cofre/status</div>
+    <div class="log" id="log">Conectando a MQTT...</div>
+  </div>
+
+<script>
+    
+const topic = "pomopet/POMO001/cofre/status";
+
+const pomo = document.getElementById("pomo");
+const estado = document.getElementById("estado");
+const log = document.getElementById("log");
+
+console.log("Iniciando cliente MQTT web...");
+
+// Broker HiveMQ por WebSocket seguro
+const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt", {
+  clientId: "web_pomopet_" + Math.random().toString(16).slice(2),
+  clean: true,
+  reconnectPeriod: 3000,
+  connectTimeout: 10000
+});
+
+client.on("connect", function () {
+  console.log("MQTT conectado desde la web");
+  log.textContent = "MQTT conectado. Escuchando...";
+
+  client.subscribe(topic, function (err) {
+    if (err) {
+      console.error("Error al suscribirse:", err);
+      log.textContent = "Error al suscribirse al tópico";
+    } else {
+      console.log("Suscrito a:", topic);
+      log.textContent = "Escuchando: " + topic;
+    }
+  });
+});
+
+client.on("message", function (receivedTopic, message) {
+  const msg = message.toString();
+
+  console.log("Mensaje recibido:", receivedTopic, msg);
+  log.textContent = "Mensaje recibido: " + msg;
+
+  if (msg === "bloqueado") {
+    pomo.textContent = "(>_<)";
+    estado.textContent = "Cofre bloqueado / estudiando";
+    estado.style.color = "#c8f060";
+  }
+
+  else if (msg === "abierto") {
+    pomo.textContent = "(o.o)";
+    estado.textContent = "Cofre abierto";
+    estado.style.color = "#60a5fa";
+  }
+
+  else {
+    pomo.textContent = "(?)";
+    estado.textContent = "Mensaje desconocido: " + msg;
+    estado.style.color = "#fbbf24";
+  }
+});
+
+client.on("error", function (err) {
+  console.error("Error MQTT:", err);
+  log.textContent = "Error MQTT. Revisa consola.";
+});
+
+client.on("reconnect", function () {
+  console.log("Reintentando conexión MQTT...");
+  log.textContent = "Reintentando conexión MQTT...";
+});
+
+client.on("offline", function () {
+  console.log("MQTT offline");
+  log.textContent = "MQTT offline";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PomoPet — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0d12;--surface:#13131a;--card:#18181f;--card2:#1e1e28;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --text:#f0edf8;--muted:#6e6a85;
+  --accent:#c8f060;--teal:#26c6a6;--purple:#a855f7;--purple2:#7c3aed;
+  --pink:#f472b6;--yellow:#fbbf24;--red:#ef4444;--blue:#60a5fa;--orange:#fb923c;
+  --pixel:'Press Start 2P',monospace;--sans:'Nunito',sans-serif;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;display:flex;flex-direction:column;}
+
+/* pantalla de carga */
+#loadingScreen{
+  position:fixed;inset:0;z-index:9999;
+  background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;
+}
+#loadingScreen .ld-logo{font-family:var(--pixel);font-size:20px;color:var(--accent);
+  text-shadow:0 0 30px rgba(200,240,96,0.4);}
+#loadingScreen .ld-pet{font-family:var(--pixel);font-size:32px;color:var(--yellow);
+  animation:petBob 1s ease-in-out infinite;}
+#loadingScreen .ld-bar-wrap{width:240px;height:6px;background:var(--card2);border-radius:3px;overflow:hidden;}
+#loadingScreen .ld-bar{height:100%;background:var(--accent);width:0%;transition:width 0.3s ease;border-radius:3px;}
+#loadingScreen .ld-txt{font-family:var(--pixel);font-size:7px;color:var(--muted);}
+
+.app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:52px 1fr;height:100vh;overflow:hidden;}
+
+.topbar{
+  grid-column:1/-1;background:rgba(13,13,18,0.95);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;
+  backdrop-filter:blur(8px);z-index:10;
+}
+.topbar-left{display:flex;align-items:center;gap:1rem}
+.back-link{font-family:var(--pixel);font-size:7px;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.15s;}
+.back-link:hover{color:var(--accent)}
+.topbar-logo{font-family:var(--pixel);font-size:12px;color:var(--accent);text-shadow:0 0 20px rgba(200,240,96,0.4);}
+.topbar-session{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.session-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 2s ease-in-out infinite;}
+.session-dot.offline{background:var(--muted);box-shadow:none;animation:none;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.user-info{text-align:right}
+.user-name{font-size:13px;font-weight:700}
+.user-role{font-size:11px;color:var(--muted)}
+.user-avatar{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--purple),var(--pink));
+  border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--pixel);font-size:10px;color:#fff;cursor:pointer;
+  transition:transform 0.15s;
+}
+.user-avatar:hover{transform:scale(1.05)}
+.btn-logout{
+  font-family:var(--pixel);font-size:7px;color:var(--muted);
+  background:none;border:1px solid var(--border);padding:6px 10px;
+  cursor:pointer;transition:all 0.15s;
+}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
+
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.pet-section{padding:1.2rem 1rem 1rem;display:flex;flex-direction:column;align-items:center;border-bottom:1px solid var(--border);}
+.pet-frame{
+  width:130px;height:130px;
+  background:linear-gradient(135deg,#1e1e38,#2a1a3e);
+  border:2px solid var(--purple);border-radius:12px;
+  position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+  margin-bottom:10px;box-shadow:0 0 30px rgba(168,85,247,0.2);overflow:hidden;
+}
+.pet-frame::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(168,85,247,0.04) 3px,rgba(168,85,247,0.04) 4px);
+}
+.pet-sprite{
+  position:absolute;inset:0;z-index:1;
+  display:flex;align-items:center;justify-content:center;
+}
+/* Sprites en CSS pixel art por estado */
+.sprite-wrap{font-family:var(--pixel);font-size:22px;color:var(--yellow);animation:petBob 2.5s ease-in-out infinite;text-shadow:0 0 20px rgba(251,191,36,0.5);}
+.pomo-status-label{
+  position:absolute;top:6px;left:6px;right:6px;z-index:3;
+  font-family:var(--pixel);font-size:6px;text-align:left;
+  padding:5px 22px 5px 6px;border-radius:4px;letter-spacing:0.5px;line-height:1.5;
+  background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.12);
+  transition:opacity 0.25s ease, transform 0.25s ease;
+}
+.pomo-status-label.hidden{opacity:0;transform:translateY(-6px);pointer-events:none;}
+.pomo-status-close{
+  position:absolute;top:3px;right:3px;width:14px;height:14px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,0.08);border:none;border-radius:3px;
+  color:var(--muted);font-size:9px;line-height:1;padding:0;cursor:pointer;
+}
+.pomo-status-close:hover{color:var(--text);background:rgba(255,255,255,0.18);}
+.estado-estudiando{color:#c8f060;border-color:rgba(200,240,96,0.3);}
+.estado-descansando{color:#26c6a6;border-color:rgba(38,198,166,0.3);}
+.estado-durmiendo{color:#8888aa;border-color:rgba(136,136,170,0.3);}
+.estado-celebrando{color:#ffd54f;border-color:rgba(255,213,79,0.3);}
+.estado-asustado{color:#ef5350;border-color:rgba(239,83,80,0.3);}
+.estado-esperando{color:#8888aa;border-color:rgba(136,136,170,0.2);}
+.estado-naciendo{color:#f48fb1;border-color:rgba(244,143,177,0.3);}
+.estado-muriendo{color:#ef5350;border-color:rgba(239,83,80,0.4);}
+#contenedorSprite{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+#contenedorSprite img{image-rendering:pixelated;width:78%;height:78%;object-fit:contain;}
+@keyframes petBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.sprite-wrap.estudiando{color:var(--accent);animation:petBob 1.5s ease-in-out infinite;}
+.sprite-wrap.descansando{color:var(--teal);animation:petBob 3s ease-in-out infinite;}
+.sprite-wrap.celebrando{color:var(--yellow);animation:celebrate 0.5s ease-in-out infinite alternate;}
+@keyframes celebrate{0%{transform:translateY(0) rotate(-5deg)}100%{transform:translateY(-8px) rotate(5deg)}}
+.sprite-wrap.asustado{color:var(--red);animation:shake 0.3s ease-in-out infinite;}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.sprite-wrap.durmiendo{color:var(--muted);animation:petBob 4s ease-in-out infinite;}
+
+.streak-badge{position:absolute;top:-8px;right:-8px;background:var(--orange);color:#fff;font-family:var(--pixel);font-size:7px;padding:4px 7px;border-radius:20px;border:2px solid var(--surface);z-index:2;}
+
+.pet-name-wrap{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.pet-name{font-family:var(--pixel);font-size:11px;color:var(--text);}
+.pet-name-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px;transition:color 0.15s;}
+.pet-name-edit:hover{color:var(--accent);}
+.pet-mood{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.pet-etapa{font-family:var(--pixel);font-size:7px;color:var(--purple);margin-bottom:8px;letter-spacing:1px;}
+
+.pet-hearts{display:flex;gap:5px;margin-bottom:14px;}
+.heart{font-size:18px;filter:drop-shadow(0 0 4px rgba(239,68,68,0.6))}
+.heart.empty{opacity:0.2}
+
+.pet-level{width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;}
+.level-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.level-label{font-family:var(--pixel);font-size:7px;color:var(--purple);letter-spacing:1px;}
+.level-num{font-family:var(--pixel);font-size:16px;color:var(--text);}
+.level-bar{width:100%;height:6px;background:var(--card);border-radius:3px;overflow:hidden;}
+.level-fill{height:100%;background:linear-gradient(90deg,var(--purple2),var(--purple));border-radius:3px;transition:width 1s ease;}
+.level-sub{font-size:10px;color:var(--muted);margin-top:4px;text-align:center;}
+
+.streak-row{display:flex;align-items:center;gap:6px;font-family:var(--pixel);font-size:10px;color:var(--orange);margin-bottom:4px;}.streak-row span{font-size:13px;}
+.streak-sub{font-size:10px;color:var(--muted);}
+
+.sidebar-nav{padding:0.8rem;display:flex;flex-direction:column;gap:2px;flex:1;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;transition:all 0.15s;text-decoration:none;}
+.nav-item:hover{background:var(--card2);color:var(--text)}
+.nav-item.active{background:rgba(200,240,96,0.1);color:var(--accent);border:1px solid rgba(200,240,96,0.15)}
+.nav-icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-footer{padding:1rem;border-top:1px solid var(--border);font-size:10px;color:var(--muted);text-align:center;line-height:1.8;}
+
+.main{overflow-y:auto;overflow-x:hidden;padding:1.2rem;display:flex;flex-direction:column;gap:12px;background:var(--bg);}
+.main::-webkit-scrollbar{width:5px}
+.main::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.2rem;}
+.card-title{font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px;}
+.card-sub{font-size:11px;color:var(--muted);margin-bottom:1rem;}
+
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.metric{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;display:flex;align-items:center;gap:12px;transition:border-color 0.2s,transform 0.15s;cursor:default;}
+.metric:hover{border-color:var(--border2);transform:translateY(-2px)}
+.metric-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.metric-body{display:flex;flex-direction:column;}
+.metric-val{font-family:var(--pixel);font-size:18px;line-height:1;margin-bottom:4px;}
+.metric-lbl{font-size:11px;color:var(--muted);}
+
+.center-row{display:grid;grid-template-columns:1fr 320px;gap:12px;}
+
+.heatmap-grid{display:grid;grid-template-columns:42px repeat(7,1fr);gap:5px;margin-top:0.5rem;}
+.hm-header{font-size:10px;font-weight:700;color:var(--muted);text-align:center;padding-bottom:4px;}
+.hm-time{font-size:10px;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:6px;}
+.hm-cell{height:26px;border-radius:5px;background:var(--card2);transition:transform 0.1s,filter 0.1s;cursor:pointer;position:relative;}
+.hm-cell:hover{transform:scale(1.1);filter:brightness(1.3);z-index:2}
+.hm-cell[data-v="0"]{background:rgba(168,85,247,0.05)}
+.hm-cell[data-v="1"]{background:rgba(168,85,247,0.15)}
+.hm-cell[data-v="2"]{background:rgba(168,85,247,0.35)}
+.hm-cell[data-v="3"]{background:rgba(168,85,247,0.6)}
+.hm-cell[data-v="4"]{background:rgba(168,85,247,0.85)}
+.hm-cell[data-v="5"]{background:#a855f7}
+.hm-legend{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:8px;font-size:10px;color:var(--muted);}
+.hm-legend-item{width:14px;height:14px;border-radius:3px;}
+
+.week-bars{display:flex;flex-direction:column;gap:8px;margin-top:0.5rem;}
+.week-day{display:flex;align-items:center;gap:10px;}
+.wd-label{font-size:11px;font-weight:700;color:var(--muted);width:28px;text-align:right;}
+.wd-bar-wrap{flex:1;height:20px;background:var(--card2);border-radius:4px;overflow:hidden;}
+.wd-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--purple2),var(--purple));transition:width 1s ease;}
+.wd-bar.today{background:linear-gradient(90deg,var(--teal),var(--accent))}
+.wd-pct{font-size:11px;font-weight:800;color:var(--text);width:32px;text-align:right;}
+.wd-sessions{font-size:10px;color:var(--muted);width:24px;}
+
+.growth-badge{display:flex;align-items:center;gap:8px;background:rgba(38,198,166,0.1);border:1px solid rgba(38,198,166,0.2);border-radius:8px;padding:10px 14px;margin-top:12px;}
+.growth-icon{font-size:16px;}
+.growth-val{font-family:var(--pixel);font-size:14px;color:var(--teal);}
+.growth-lbl{font-size:11px;color:var(--muted);}
+
+.bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.device-status{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0.6rem 0;}
+.device-face{font-family:var(--pixel);font-size:32px;color:var(--yellow);text-shadow:0 0 20px rgba(251,191,36,0.5);}
+
+.session-meta{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;}
+.sm-box{background:var(--card2);border-radius:8px;padding:8px 10px;text-align:center;}
+.sm-val{font-family:var(--pixel);font-size:13px;color:var(--text);}
+.sm-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;}
+
+.hist-list{display:flex;flex-direction:column;gap:6px;margin-top:0.3rem;}
+.hist-item{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--card2);border-radius:8px;transition:background 0.15s;}
+.hist-item:hover{background:var(--border);}
+.hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.hist-info{flex:1;}
+.hist-title{font-size:12px;font-weight:700;}
+.hist-time{font-size:10px;color:var(--muted);}
+.hist-dur{font-family:var(--pixel);font-size:9px;color:var(--muted);}
+.hist-badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;}
+
+.cofre-status{
+  display:flex;align-items:center;gap:8px;
+  background:var(--card2);border-radius:8px;padding:8px 12px;
+  font-size:11px;color:var(--muted);
+  border:1px solid var(--border);
+  margin-left:12px;
+}
+.cofre-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+.cofre-dot.active{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+
+.tooltip{position:fixed;background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:6px 10px;font-size:11px;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;white-space:nowrap;}
+.tooltip.show{opacity:1;}
+
+.empty-state{text-align:center;padding:2rem;color:var(--muted);}
+.empty-state .es-icon{font-size:32px;margin-bottom:1rem;display:block;}
+.empty-state p{font-family:var(--pixel);font-size:8px;line-height:2;}
+
+@media(max-width:1100px){.metrics{grid-template-columns:repeat(2,1fr)}.center-row{grid-template-columns:1fr}.bottom-row{grid-template-columns:1fr}}
+@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:52px auto 1fr}.sidebar{display:none}html,body{overflow:auto}.app{height:auto}.main{overflow:visible}}
+</style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="ld-pet" id="ldPet">(^w^)</div>
+  <div class="ld-logo">POMOPET</div>
+  <div class="ld-bar-wrap"><div class="ld-bar" id="ldBar"></div></div>
+  <div class="ld-txt" id="ldTxt">Cargando progreso...</div>
+</div>
+
+<div class="app" id="appRoot" style="display:none">
+
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="back-link">◀ INICIO</a>
+    <span style="color:var(--border2);font-size:12px">|</span>
+    <span class="topbar-logo">POMOPET</span>
+    <div class="topbar-session">
+      <span class="session-dot" id="cofreDot"></span>
+      <span id="cofreStatusTxt">Verificando cofre...</span>
+    </div>
+    <!-- Estado cofre detallado -->
+    <div class="cofre-status">
+      <span class="cofre-dot" id="cofreConectDot"></span>
+      <span id="cofreConectTxt">Cofre desconectado</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="user-info">
+      <div class="user-name" id="topNombre">—</div>
+      <div class="user-role" id="topEtapa">Cargando...</div>
+    </div>
+    <div class="user-avatar" id="topAvatar">??</div>
+    <button class="btn-logout" onclick="handleLogout()">SALIR</button>
+  </div>
+</header>
+
+<aside class="sidebar">
+  <div class="pet-section">
+    <div class="pet-frame">
+      <span class="streak-badge" id="sideStreakBadge">🔥 0</span>
+      <div class="pet-sprite" id="contenedorSprite"></div>
+      <div id="pomoStatusLabel" class="pomo-status-label estado-esperando">
+        <span id="pomoStatusText">⏳ Esperando...</span>
+        <button class="pomo-status-close" id="pomoStatusClose" title="Cerrar" type="button">×</button>
+      </div>
+    </div>
+
+    <div class="pet-name-wrap">
+      <span class="pet-name" id="sidePetName">POMY</span>
+      <button class="pet-name-edit" title="Renombrar mascota" onclick="renombrarPomo()">✏️</button>
+    </div>
+    <div class="pet-etapa" id="sideEtapa">NUEVO</div>
+    <div class="pet-mood" id="sideMood">Esperando...</div>
+
+    <div class="pet-hearts" id="sideHearts">
+      <span class="heart empty">🖤</span>
+      <span class="heart empty">🖤</span>
+      <span class="heart empty">🖤</span>
+      <span class="heart empty">🖤</span>
+      <span class="heart empty">🖤</span>
+    </div>
+    <div style="font-family:var(--pixel);font-size:7px;color:var(--muted);letter-spacing:1px;margin-bottom:8px">VITALIDAD</div>
+
+    <div class="pet-level">
+      <div class="level-row">
+        <span class="level-label">NIVEL</span>
+        <span class="level-num" id="sideNivel">1</span>
+      </div>
+      <div class="level-bar"><div class="level-fill" id="levelFill" style="width:0%"></div></div>
+      <div class="level-sub" id="levelSub">0% al nivel 2</div>
+    </div>
+
+    <div class="streak-row">🔥 <span id="sideStreak">0</span> días consecutivos</div>
+    <div class="streak-sub" id="sideStreakSub">¡Empieza hoy!</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="#">
+      <span class="nav-icon">📊</span> Dashboard
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    PomoPet · UDP TICS I<br>
+    Sección 3 · 2026
+  </div>
+</aside>
+
+<main class="main">
+
+    <div class="metrics">
+    <div class="metric">
+      <div class="metric-icon" style="background:rgba(96,165,250,0.15)">🕐</div>
+      <div class="metric-body">
+        <div class="metric-val" style="color:var(--blue)" id="metSesiones">—</div>
+        <div class="metric-lbl">Sesiones hoy</div>
+      </div>
+    </div>
+    <div class="metric">
+      <div class="metric-icon" style="background:rgba(38,198,166,0.15)">⏳</div>
+      <div class="metric-body">
+        <div class="metric-val" style="color:var(--teal)" id="metHoras">—</div>
+        <div class="metric-lbl">Horas totales</div>
+      </div>
+    </div>
+    <div class="metric">
+      <div class="metric-icon" style="background:rgba(168,85,247,0.15)">🎯</div>
+      <div class="metric-body">
+        <div class="metric-val" style="color:var(--purple)" id="metMeta">—</div>
+        <div class="metric-lbl">Meta diaria</div>
+      </div>
+    </div>
+    <div class="metric">
+      <div class="metric-icon" style="background:rgba(251,146,60,0.15)">📈</div>
+      <div class="metric-body">
+        <div class="metric-val" style="color:var(--orange)" id="metConsist">—</div>
+        <div class="metric-lbl">Consistencia</div>
+      </div>
+    </div>
+  </div>
+
+    <div class="center-row">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="card-title">Mapa de actividad diaria</div>
+          <div class="card-sub">Intensidad de estudio por hora y día</div>
+        </div>
+        <div class="hm-legend">
+          <span>Menos</span>
+          <div class="hm-legend-item" style="background:rgba(168,85,247,0.1)"></div>
+          <div class="hm-legend-item" style="background:rgba(168,85,247,0.3)"></div>
+          <div class="hm-legend-item" style="background:rgba(168,85,247,0.6)"></div>
+          <div class="hm-legend-item" style="background:#a855f7"></div>
+          <span>Más</span>
+        </div>
+      </div>
+      <div class="heatmap-grid" id="heatmapGrid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Concentración semanal</div>
+      <div class="card-sub">Sesiones completadas por día</div>
+      <div class="week-bars" id="weekBars"></div>
+      <div class="growth-badge">
+        <span class="growth-icon">📈</span>
+        <div>
+          <div class="growth-val" id="growthVal">—</div>
+          <div class="growth-lbl">sesiones esta semana</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <div class="bottom-row">
+    <div class="card">
+      <div class="card-title">Estado del dispositivo</div>
+      <div class="card-sub">Datos en vivo desde el Cofre y el Arcade</div>
+      <div class="device-status">
+        <div class="device-face" id="livePet">(o.o)</div>
+        <div class="session-meta">
+          <div class="sm-box"><div class="sm-val" id="smModo">25 min</div><div class="sm-lbl">Modo</div></div>
+          <div class="sm-box"><div class="sm-val" id="smCel" style="color:var(--muted)">NO</div><div class="sm-lbl">Celular</div></div>
+          <div class="sm-box"><div class="sm-val" id="smEstado" style="color:var(--muted)">IDLE</div><div class="sm-lbl">Estado</div></div>
+          <div class="sm-box"><div class="sm-val" id="smActualizado" style="color:var(--muted)">—</div><div class="sm-lbl">Actualizado</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="histTitle">Últimas sesiones</div>
+      <div class="card-sub">Historial reciente</div>
+      <div class="hist-list" id="histList">
+        <div class="empty-state">
+          <span class="es-icon">(o.o)</span>
+          <p>Aún no hay sesiones.<br>¡Empieza una!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script type="module">
+import {
+  onCambioAuth, cerrarSesion, usuarioActual,
+  getMascota, getRacha, getResumenDashboard,
+  getEstadisticasSemana, getHeatmap,
+  getHistorialSesiones,
+  suscribirMascota, renombrarMascota,
+  getEstadoDispositivo, suscribirEstadoDispositivo
+} from './supabase.js'
+import { SpritePomo } from './sprite_pomo.js'
+
+// Si no hay sesión activa, redirige a login. Sin excepción.
+onCambioAuth(async (usuario) => {
+  if (!usuario) {
+    window.location.href = 'login.html'
+    return
+  }
+  await iniciarDashboard(usuario)
+})
+
+window.handleLogout = async function() {
+  await cerrarSesion()
+  window.location.href = 'login.html'
+}
+
+window.renombrarPomo = async function() {
+  const actual = document.getElementById('sidePetName').textContent
+  const nuevo  = prompt('¿Cómo se llamará tu POMO?', actual)
+  if (!nuevo || nuevo.trim() === '' || nuevo === actual) return
+  const { data, error } = await renombrarMascota(nuevo.trim())
+  if (!error && data) {
+    document.getElementById('sidePetName').textContent = data.nombre
+  }
+}
+
+async function iniciarDashboard(usuario) {
+  // Iniciar animador de sprites
+  const contenedor = document.getElementById('contenedorSprite')
+  if (contenedor) {
+    window._animadorPomo = new SpritePomo(contenedor, 'sprites/')
+  }
+
+  // Botón para cerrar el banner de estado del POMO
+  const cerrarStatus = document.getElementById('pomoStatusClose')
+  if (cerrarStatus) {
+    cerrarStatus.onclick = () => {
+      document.getElementById('pomoStatusLabel').classList.add('hidden')
+    }
+  }
+
+  setLoadingProgress(20, 'Autenticando...')
+
+  const nombreUsuario = usuario.user_metadata?.nombre ?? usuario.email.split('@')[0]
+  const inicialesUsuario = nombreUsuario.split(' ').map(p => p[0]).join('').toUpperCase().slice(0,2)
+  document.getElementById('topNombre').textContent = nombreUsuario
+  document.getElementById('topAvatar').textContent = inicialesUsuario
+
+  setLoadingProgress(40, 'Cargando mascota...')
+
+  const [mascRes, rachaRes, resumenRes, semanaRes, heatRes, histRes, cofreRes] = await Promise.all([
+    getMascota(), getRacha(), getResumenDashboard(),
+    getEstadisticasSemana(), getHeatmap(),
+    getHistorialSesiones(8), getEstadoDispositivo()
+  ])
+
+  setLoadingProgress(70, 'Renderizando datos...')
+
+  // Mascota
+  if (mascRes.data) {
+    renderMascota(mascRes.data)
+  } else {
+    console.error('No se pudo cargar la mascota (tabla "mascotas"):', mascRes.error)
+    const topEtapaEl = document.getElementById('topEtapa')
+    if (topEtapaEl) topEtapaEl.textContent = 'Sin datos de mascota'
+  }
+
+  // Racha
+  if (rachaRes.data) {
+    renderRacha(rachaRes.data)
+  } else if (rachaRes.error) {
+    console.error('No se pudo cargar la racha (tabla "rachas"):', rachaRes.error)
+  }
+
+  // Resumen métricas
+  if (resumenRes.data) {
+    renderMetricas(resumenRes.data)
+  } else if (resumenRes.error) {
+    console.error('No se pudo cargar el resumen (rpc "get_resumen_dashboard"):', resumenRes.error)
+  }
+
+  // Semana
+  if (semanaRes.data?.length) renderSemana(semanaRes.data)
+  else renderSemanaVacia()
+
+  // Heatmap
+  renderHeatmap(heatRes.data ?? [])
+
+  // Historial
+  renderHistorial(histRes.data ?? [])
+
+  // Cofre
+  if (cofreRes.data) renderEstadoDispositivo(cofreRes.data)
+
+  setLoadingProgress(100, '¡Listo!')
+
+  // Mostrar app
+  setTimeout(() => {
+    document.getElementById('loadingScreen').style.display = 'none'
+    document.getElementById('appRoot').style.display = 'grid'
+
+    // Suscribir realtime: mascota (sprite automático por trigger Supabase)
+    suscribirMascota(usuario.id, (nuevaMascota) => renderMascota(nuevaMascota))
+
+    // Suscribir realtime: estado dispositivo MQTT (cofre + arcade)
+    suscribirEstadoDispositivo(usuario.id, (nuevoEstado) => renderEstadoDispositivo(nuevoEstado))
+  }, 400)
+}
+
+function setLoadingProgress(pct, txt) {
+  document.getElementById('ldBar').style.width = pct + '%'
+  document.getElementById('ldTxt').textContent = txt
+}
+
+const estadosMascota = {
+  estudiando:  { cara:'(^-^)', clase:'estudiando', mood:'Estudiando concentrado' },
+  descansando: { cara:'(*u*)', clase:'descansando', mood:'Descansando tranquilo' },
+  durmiendo:   { cara:'(o.o)', clase:'durmiendo',   mood:'Esperando...' },
+  celebrando:  { cara:'(★w★)', clase:'celebrando',  mood:'¡Celebrando logro!' },
+  asustado:    { cara:'(>_<)', clase:'asustado',     mood:'¡Celular fuera del cofre!' },
+  esperando:   { cara:'(-.-)', clase:'durmiendo',    mood:'Esperando sesión...' },
+}
+const textoHumor = {
+  feliz:   '¡Feliz y motivado!',
+  neutral: 'Bien, sin novedades',
+  triste:  'Triste, necesita sesiones...',
+}
+const nombresEtapa = {
+  'recien nacido':  'Recién Nacido',
+  aprendiz:   'APRENDIZ',
+  culto:     'CULTO',
+  maestro:   'MAESTRO',
+  sabio:  'SABIO',
+}
+
+function renderMascota(m) {
+  const estadoSprite = estadosMascota[m.sprite_estado] ?? estadosMascota.durmiendo
+  // Actualizar sprite animado (cambia imagen + label automáticamente)
+  if (window._animadorPomo) window._animadorPomo.setEstado(m.sprite_estado)
+  // Actualizar cara en el timer central
+  const estadoCara = estadoSprite?.cara ?? '(o.o)'
+  const livePetEl = document.getElementById('livePet')
+  if (livePetEl) livePetEl.textContent = estadoCara
+
+  document.getElementById('sidePetName').textContent = m.nombre ?? 'POMY'
+  document.getElementById('sideEtapa').textContent   = nombresEtapa[m.etapa] ?? 'NUEVO'
+  const topEtapaEl = document.getElementById('topEtapa')
+  if (topEtapaEl) topEtapaEl.textContent = nombresEtapa[m.etapa] ?? 'Nuevo estudiante'
+
+  const textoEstado = textoHumor[m.sprite_humor] ?? estadoSprite?.mood ?? 'Esperando...'
+  document.getElementById('sideMood').textContent = textoEstado
+
+  // Corazones
+  const hearts = document.getElementById('sideHearts')
+  hearts.innerHTML = ''
+  for (let i = 0; i < 5; i++) {
+    const h = document.createElement('span')
+    h.className = 'heart' + (i < m.corazones ? '' : ' empty')
+    h.textContent = i < m.corazones ? '❤️' : '🖤'
+    hearts.appendChild(h)
+  }
+
+  // Nivel y XP
+  document.getElementById('sideNivel').textContent = m.nivel
+  const porcentajeXP = Math.round((m.xp_actual / m.xp_para_nivel) * 100)
+  document.getElementById('levelFill').style.width = porcentajeXP + '%'
+  document.getElementById('levelSub').textContent  = `${porcentajeXP}% al nivel ${m.nivel + 1}`
+}
+
+function renderRacha(r) {
+  const rachaActual = r.racha_actual ?? 0
+  document.getElementById('sideStreak').textContent      = rachaActual
+  document.getElementById('sideStreakBadge').textContent = '🔥 ' + rachaActual
+  document.getElementById('sideStreakSub').textContent   =
+    rachaActual > 0 ? `Máximo: ${r.racha_maxima} días` : '¡Empieza hoy!'
+}
+
+function renderMetricas(d) {
+  document.getElementById('metSesiones').textContent = d.sesiones_hoy ?? 0
+  document.getElementById('metHoras').textContent    = (d.horas_totales ?? 0) + 'h'
+  document.getElementById('metMeta').textContent     = Math.round(d.meta_diaria_pct ?? 0) + '%'
+  document.getElementById('metConsist').textContent  = Math.round(d.consistencia_pct ?? 0) + '%'
+}
+
+const diasSemana = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+const franjas = ['6am','9am','12pm','3pm','6pm','9pm']
+const mapaFranjas = { 6:0, 9:1, 12:2, 15:3, 18:4, 21:5 }
+
+function renderHeatmap(rows) {
+  // Construir matriz 6×7 vacía
+  const matriz = Array.from({length:6}, () => Array(7).fill(0))
+  rows.forEach(r => {
+    const fi = mapaFranjas[r.franja_hora]
+    const di = r.dia_semana
+    if (fi !== undefined && di >= 0 && di <= 6)
+      matriz[fi][di] = r.intensidad ?? 0
+  })
+
+  const grid = document.getElementById('heatmapGrid')
+  grid.innerHTML = ''
+  // Header vacío
+  grid.appendChild(document.createElement('div'))
+  diasSemana.forEach(d => {
+    const h = document.createElement('div'); h.className = 'hm-header'; h.textContent = d
+    grid.appendChild(h)
+  })
+  matriz.forEach((row, ri) => {
+    const tl = document.createElement('div'); tl.className = 'hm-time'; tl.textContent = franjas[ri]
+    grid.appendChild(tl)
+    row.forEach((val) => {
+      const cell = document.createElement('div')
+      cell.className = 'hm-cell'; cell.dataset.v = val
+      cell.addEventListener('mouseenter', e => showTooltip(e, franjas[ri], val))
+      cell.addEventListener('mouseleave', hideTooltip)
+      grid.appendChild(cell)
+    })
+  })
+}
+
+const etiquetasDia = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+
+function renderSemana(stats) {
+  const container = document.getElementById('weekBars')
+  container.innerHTML = ''
+  const maxSesiones = Math.max(...stats.map(s => s.total_sesiones), 1)
+  const totalSemana = stats.reduce((a, s) => a + s.total_sesiones, 0)
+
+  const hoy = new Date().getDay()
+  const indiceDiaHoy = hoy === 0 ? 6 : hoy - 1
+
+  stats.forEach((s, i) => {
+    const pct   = Math.round((s.total_sesiones / maxSesiones) * 100)
+    const esHoy = i === indiceDiaHoy
+    const row   = document.createElement('div'); row.className = 'week-day'
+    row.innerHTML = `
+      <span class="wd-label" style="${esHoy ? 'color:var(--accent)' : ''}">${etiquetasDia[i]}</span>
+      <div class="wd-bar-wrap">
+        <div class="wd-bar ${esHoy ? 'today' : ''}" style="width:${pct}%"></div>
+      </div>
+      <span class="wd-pct" style="${esHoy ? 'color:var(--accent)' : ''}">${s.total_sesiones}</span>
+      <span class="wd-sessions">s</span>
+    `
+    container.appendChild(row)
+  })
+  document.getElementById('growthVal').textContent = totalSemana + ' sesiones'
+}
+
+function renderSemanaVacia() {
+  const container = document.getElementById('weekBars')
+  container.innerHTML = ''
+  etiquetasDia.forEach(d => {
+    const row = document.createElement('div'); row.className = 'week-day'
+    row.innerHTML = `<span class="wd-label">${d}</span><div class="wd-bar-wrap"><div class="wd-bar" style="width:0%"></div></div><span class="wd-pct" style="color:var(--muted)">0</span><span class="wd-sessions">s</span>`
+    container.appendChild(row)
+  })
+  document.getElementById('growthVal').textContent = '0 sesiones'
+}
+
+function renderHistorial(sesiones) {
+  const list = document.getElementById('histList')
+  list.innerHTML = ''
+  if (!sesiones.length) {
+    list.innerHTML = '<div class="empty-state"><span class="es-icon">(o.o)</span><p>Aún no hay sesiones.<br>¡Empieza una!</p></div>'
+    return
+  }
+  const coloresSesion = { completada:'#22c55e', interrumpida:'#ef4444', en_curso:'#fbbf24', saltada:'#6e6a85' }
+  const etiquetasSesion = { completada:'COMPLETA', interrumpida:'ALERTA', en_curso:'EN CURSO', saltada:'SALTADA' }
+  const fondosSesion = { completada:'rgba(34,197,94,0.12)', interrumpida:'rgba(239,68,68,0.12)', en_curso:'rgba(251,191,36,0.12)', saltada:'rgba(110,106,133,0.12)' }
+  const iconosTipo = { focus:'📚', descanso_corto:'☕', descanso_largo:'🌿' }
+
+  sesiones.forEach(s => {
+    const hora = new Date(s.iniciada_en).toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'})
+    const dur  = s.duracion_seg ? `${Math.floor(s.duracion_seg/60)}m` : s.modo_minutos + 'min'
+    const item = document.createElement('div'); item.className = 'hist-item'
+    item.innerHTML = `
+      <div class="hist-dot" style="background:${coloresSesion[s.estado]??'#6e6a85'}"></div>
+      <div class="hist-info">
+        <div class="hist-title">${iconosTipo[s.tipo]??'📚'} ${s.tipo === 'focus' ? 'Sesión de estudio' : 'Descanso'} ${s.modo_minutos}min</div>
+        <div class="hist-time">${hora} hs · Sesión #${s.numero_sesion}</div>
+      </div>
+      <div class="hist-dur">${dur}</div>
+      <div class="hist-badge" style="background:${fondosSesion[s.estado]??''};color:${coloresSesion[s.estado]??'#6e6a85'}">${etiquetasSesion[s.estado]??s.estado}</div>
+    `
+    list.appendChild(item)
+  })
+}
+
+function renderCofre(cofre) {
+  const dot     = document.getElementById('cofreDot')
+  const txt     = document.getElementById('cofreStatusTxt')
+  const conDot  = document.getElementById('cofreConectDot')
+  const conTxt  = document.getElementById('cofreConectTxt')
+  const celEl   = document.getElementById('smCel')
+
+  if (!cofre || !cofre.conectado) {
+    dot.className = 'session-dot offline'
+    txt.textContent = 'Cofre desconectado'
+    conDot.className = 'cofre-dot'
+    conTxt.textContent = 'Cofre sin conexión'
+    celEl.textContent = 'NO'; celEl.style.color = 'var(--muted)'
+    return
+  }
+
+  dot.className = 'session-dot'
+  conDot.className = 'cofre-dot active'
+  conTxt.textContent = cofre.nombre ?? 'Cofre conectado'
+
+  if (cofre.celular_dentro) {
+    txt.textContent = '📱 Celular dentro del cofre'
+    celEl.textContent = 'SI'; celEl.style.color = 'var(--accent)'
+  } else {
+    txt.textContent = '⚠️ Celular fuera del cofre'
+    celEl.textContent = 'NO'; celEl.style.color = 'var(--red)'
+  }
+}
+
+
+function renderEstadoDispositivo(disp) {
+  if (!disp) return
+
+  // Actualizar celular/estado en el timer card
+  const celEl    = document.getElementById('smCel')
+  const estadoEl = document.getElementById('smEstado')
+  const modoEl   = document.getElementById('smModo')
+
+  if (celEl) {
+    celEl.textContent  = disp.celular_dentro ? 'SÍ' : 'NO'
+    celEl.style.color  = disp.celular_dentro ? 'var(--accent)' : 'var(--red)'
+  }
+
+  const estadosLabel = {0:'IDLE', 1:'FOCUS', 2:'REST', 3:'ALERTA'}
+  const estadosColor = {0:'var(--muted)', 1:'var(--accent)', 2:'var(--teal)', 3:'var(--red)'}
+  if (estadoEl) {
+    estadoEl.textContent = estadosLabel[disp.estado_sesion] ?? 'IDLE'
+    estadoEl.style.color = estadosColor[disp.estado_sesion] ?? 'var(--muted)'
+  }
+  if (modoEl) modoEl.textContent = (disp.modo_minutos ?? 25) + ' min'
+
+  const actEl = document.getElementById('smActualizado')
+  if (actEl) actEl.textContent = calcularTiempoAtras(disp.ultima_actualizacion)
+
+  // Actualizar cofre status
+  renderCofre({
+    conectado:     true,
+    celular_dentro: disp.celular_dentro,
+    servo_bloqueado: disp.servo_bloqueado,
+    nombre:        disp.servo_bloqueado ? '🔒 Cofre bloqueado' : '🔓 Cofre abierto'
+  })
+
+  // El sprite ya se actualiza automáticamente via suscribirMascota (trigger Supabase)
+  // Solo actualizar corazones live desde el estado del dispositivo
+  if (disp.corazones !== undefined) renderCorazonesLive(disp.corazones)
+}
+
+function calcularTiempoAtras(isoStr) {
+  if (!isoStr) return '?'
+  const seg = Math.floor((Date.now() - new Date(isoStr)) / 1000)
+  if (seg < 60)  return seg + 's'
+  if (seg < 3600) return Math.floor(seg/60) + 'min'
+  return Math.floor(seg/3600) + 'h'
+}
+
+function renderCorazonesLive(cantidad) {
+  const cont = document.getElementById('petHearts')
+  if (!cont) return
+  cont.querySelectorAll('.heart').forEach((h, i) => {
+    h.classList.toggle('empty', i >= cantidad)
+  })
+}
+
+const tooltip = document.getElementById('tooltip')
+function showTooltip(e, time, val) {
+  const labels = ['Sin actividad','Baja','Moderada','Alta','Muy alta','Máxima']
+  tooltip.textContent = `${time} · ${labels[val] ?? 'Sin datos'}`
+  tooltip.classList.add('show')
+}
+function hideTooltip() { tooltip.classList.remove('show') }
+document.addEventListener('mousemove', e => {
+  tooltip.style.left = (e.clientX + 14) + 'px'
+  tooltip.style.top  = (e.clientY - 28) + 'px'
+})
+</script>
+
+
+<!-- Animación de la pantalla de carga -->
+<script>
+const ldPet = document.getElementById('ldPet')
+const carasLoading = ['(^w^)','(>w<)','(*v*)','(°w°)']
+let idxLoading = 0
+setInterval(() => { ldPet.textContent = carasLoading[++idxLoading % carasLoading.length] }, 500)
+</script>
+
+
+
+
+<!-- SECCION MQTT============================================================================================================================-->
+ 
+<script src="sprite_pomo.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+
+<script>
+  // 3. CREAR LA MASCOTA EN EL LUGAR EXACTO QUE ENCONTRASTE
+  // ¡Aquí usamos 'contenedorSprite' que es el de tu diseño!
+  const cajaMascota = document.getElementById('contenedorSprite');
+  
+  if (cajaMascota) {
+      const pomo = new SpritePomo(cajaMascota);
+      
+      // Le decimos que busque los archivos PNG en la carpeta "sprites"
+      pomo.carpeta = "sprites/"; 
+      pomo.setEstado('idle'); // Arranca respirando
+      
+      // 4. CONECTAR A INTERNET (MQTT)
+      const mqttClient = new Paho.MQTT.Client("broker.hivemq.com", 8000, "web_pomo_" + Math.random().toString(16).substr(2, 8));
+
+      mqttClient.onConnectionLost = function (responseObject) {
+        if (responseObject.errorCode !== 0) {
+          console.log("Desconectado de HiveMQ. Reintentando...");
+          setTimeout(conectarMQTT, 3000);
+        }
+      };
+
+      mqttClient.onMessageArrived = function (message) {
+        console.log("Llegó mensaje desde ESP32:", message.payloadString);
+        if (message.destinationName === "pomopet/cofre/status") {
+          const estadoCofre = message.payloadString;
+          
+          // Si el ESP32 dice que se bloqueó, Pomo se pone a estudiar
+          if (estadoCofre === "bloqueado") {
+            pomo.setEstado('estudiando');
+          } 
+          // Si dice que se abrió, vuelve a la normalidad
+          else if (estadoCofre === "abierto") {
+            pomo.setEstado('idle');
+          }
+        }
+      };
+
+      function conectarMQTT() {
+        mqttClient.connect({
+          onSuccess: function () {
+            console.log("¡Web conectada y escuchando al Cofre!");
+            mqttClient.subscribe("pomopet/cofre/status");
+          }
+        });
+      }
+
+      conectarMQTT();
+      
+  } else {
+      console.error("No se encontró la caja 'contenedorSprite' en el HTML");
+  }
+</script>
+
+
+</body>
+</html>
